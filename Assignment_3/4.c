@@ -18,11 +18,11 @@ int main()
         case 'o':
         case 'u':
 
-            printf("%c is Vowal",choice);
+            printf("%c is Vowel",choice);
             break;
 
         default:
-        printf("%c is Consonent",choice);
+        printf("%c is Consonant",choice);
     }
 
     return 0;
