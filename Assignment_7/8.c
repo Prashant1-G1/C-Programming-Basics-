@@ -1,37 +1,30 @@
+
 #include <stdio.h>
-#include <stdlib.h>
+#include <string.h>
 
 
-typedef struct 
-{
-    int age;
-    char Name[20];
-    int number; 
-}Students;
+struct Student {
+    int roll;
+    char name[50];
+    float marks;
+};
 
-void display_Pointer(Students *s)
-{
-    printf("\nStudent Details\n");
-    printf("Age: %d\n",(*s).age);
-    printf("Name: %s",(*s).Name);
-    //OR
-    printf("Number: %d",s->number);
-}
+int main() {
+    struct Student s1;
+    struct Student *ptr;
 
-
-int main()
-{
-    Students s1;
-
-    printf("Enter Age: ");
-    scanf("%d",&s1.age);
-    printf("Name: ");
-    while (getchar()!='\n');
-    fgets(s1.Name,sizeof(s1.Name),stdin);
-    printf("Number: ");
-    scanf("%d",&s1.number);
-
-    display_Pointer(&s1);
     
+    s1.roll = 101;
+    strcpy(s1.name, "Alice");
+    s1.marks = 95.5;
+
+    
+    ptr = &s1;
+
+    printf("Using pointer to access structure members:\n");
+    printf("Roll No: %d\n", ptr->roll);
+    printf("Name    : %s\n", ptr->name);
+    printf("Marks   : %.2f\n", ptr->marks);
+
     return 0;
 }
