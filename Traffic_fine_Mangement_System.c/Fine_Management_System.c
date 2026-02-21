@@ -157,6 +157,172 @@ int main()
     return 0;
 }
 
+void issueFine()
+{
+    struct Fine f;
+    FILE *fp;
+
+    clearScreen();
+    printHeader("ISSUE NEW FINE");
+
+    f.fineID=getNextFineID();
+    printf("Fine ID: %d",&f.fineID);
+
+    do{
+        printf("Vehicle Number: ");
+        scanf("%s",&f.vehicle);
+        toUpperCase(f.vehicle);
+
+        if(!validateVehicle(f.vehicle))
+        {
+            printf("Invalid Vehicle Number Format!\n");
+        }
+    }while(!validateVehicle(f.vehicle));
+
+    printf("Owner Name: ");
+    while(getchar()!='\n');
+    fgets(f.ownerName,MAX_NAME_LEN,stdin);
+    
+    printf("Violation Location: ");
+    fgets(f.location,MAX_LOCATION_LEN,stdin);
+
+    printf("\n____________________________________\n");
+    printf("|          SELECT VIOLATION TYPE    |\n");
+    printf("|___________________________________|\n");
+    printf("| 1. Signal Jump        (NPR1000)  |\n");
+    printf("| 2. Speeding           (NPR1500)  |\n");
+    printf("| 3. No Helmet          (NPR500)   |\n");
+    printf("| 4. Wrong Parking      (NPR300)   |\n");
+    printf("| 5. Drunk Driving      (NPR10000) |\n");
+    printf("| 6. No Seatbelt        (NPR1000)  |\n");
+    printf("| 7. Triple Riding      (NPR500)   |\n");
+    printf("| 8. No License         (NPR5000)  |\n");
+    printf("|___________________________________|\n");
+
+    do{
+        printf("Enter Choice: ");
+        if(scanf("%d",&f.violationType)!=1)
+        {
+            printf("Invalid Choice! Numbers Only!");
+            while (getchar()!='\n');  
+            f.violationType=-1;
+        }
+        if(f.violationType<1 || f.violationType>8)
+        {
+            printf("Invalid Violation Type!\n");
+        }
+    }while(f.violationType<1||f.violationType>8);
+
+    printf("Issued By (Officer Name): ");
+    while(getchar()!='\n');
+    fgets(f.issuedBy, MAX_NAME_LEN, stdin);
+
+    f.baseAmount=getBaseFine(f.violationType);
+    f.finalAmount=f.baseAmount;
+    f.isPaid=0;
+    f.isAppealed=0;
+    f.appealstatus=0;
+    strcpy(f.appealReason,"");
+    f.issueTime=time(NULL);
+    f.payTime=0;
+
+    fp=fopen("fines.dat","ab");
+    if(!fp){
+        printf("Error opening File!\n");
+        pause();
+    }
+
+    fwrite(&f,sizeof(f),1,fp);
+    fclose(fp);
+
+    printf("\n====================================\n");
+    printf("      FINE ISSUED SUCCESSFULLY\n");
+    printf("====================================\n");
+    printf("Fine ID    : %d\n", f.fineID);
+    printf("Vehicle    : %s\n", f.vehicle);
+    printf("Owner      : %s\n", f.ownerName);
+    printf("Location   : %s\n", f.location);
+    printf("Violation  : %s\n", getViolationName(f.violationType));
+    printf("Amount     : Rs. %d\n", f.baseAmount);
+    printf("Issued By  : %s\n", f.issuedBy);
+    printf("Date/Time  : %s", ctime(&f.issueTime));
+    printf("------------------------------------\n");
+    printf("Pay within 3 days to avoid 20%% late fee\n");
+    printf("License will be dismissed after 10 days\n");
+    
+    pause();
+}
+
+void viewFines()
+{
+    FILE *fp=fopen("fines.dat","rb");
+    struct Fine f;
+    time_t now =time(NULL);
+    int count=0;
+
+    clearScreen();
+    printHeader("ALL FINES");
+
+    if(!fp)
+    {
+        printf("No Reocrds found.\n");
+        pause();
+        return;
+    }
+    
+    printf("─────────────────────────────────────────────────────────────────────────────────────────────\n");
+    printf("%-5s %-12s %-20s %-15s %-8s %-12s %-5s %-15s\n",
+           "ID", "VEHICLE", "OWNER", "VIOLATION", "AMOUNT", "STATUS", "DAYS", "NOTE");
+    printf("─────────────────────────────────────────────────────────────────────────────────────────────\n");
+   
+    while(fread(&f, sizeof(f), 1, fp))
+    {
+        displayFineDetails(&f,now);
+        count++;
+    }
+
+    fclose(fp);
+
+    if(count==0)
+    {
+        printf("No Fines Found.\n");
+    }
+    else
+    {
+        printf("─────────────────────────────────────────────────────────────────────────────────────────────\n");
+        printf("Total Fines: %d\n",count);
+    }
+    pause();
+}
+
+void searchFine()
+{
+    FILE *fp =fopen("fines.dat","rb");
+    struct Fine f;
+    char searchTerm[MAX_VEHICLE_LEN];
+    int searchType;
+    int found=0;
+    time_t now = time(NULL);
+
+    clearScreen();
+    printHeader("SEARCH FINE");
+
+    if(!fp)
+    {
+        printf("No Records Found.\n");
+        pause();
+        return;
+    }
+    printf("Search By:\n");
+    printf("1. Fine ID\n");
+    printf("2. Vehicle Number\n");
+    printf("3. Owner Name\n");
+    printf("Enter Choice: ");
+    scanf("%d",&searchType);
+
+
+}
+
 
 
 
