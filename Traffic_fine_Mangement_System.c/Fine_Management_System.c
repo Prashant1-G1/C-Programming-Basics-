@@ -320,8 +320,52 @@ void searchFine()
     printf("Enter Choice: ");
     scanf("%d",&searchType);
 
+    printf("Enter search term: ");
+    while(getchar()!='\n');
+    fgets(searchTerm,sizeof(searchTerm),stdin);
+    toUpperCase(searchTerm);
 
+    printf("\n─────────────────────────────────────────────────────────────────────────────────────────────\n");
+
+    while(fread(&f,sizeof(f),1,fp))
+    {
+        char tempVehicle[MAX_VEHICLE_LEN], tempName[MAX_NAME_LEN];
+        strcpy(tempVehicle,f.vehicle);
+        strcpy(tempName,f.ownerName);
+        toUpperCase(tempVehicle);
+        toUpperCase(tempName);
+
+        int match=0;
+        if(searchType==1 && f.fineID==atoi(searchTerm)) match==1;
+        else if(searchType==2 && strstr(tempVehicle, searchTerm)) match==1;
+        else if(searchType==3 && strstr(tempName, searchTerm)) match==1;
+
+        if(match){
+            if(!found){
+                printf("%-5s %-12s %-20s %-15s %-8s %-12s %-5s %-15s\n",
+                       "ID", "VEHICLE", "OWNER", "VIOLATION", "AMOUNT", "STATUS", "DAYS", "NOTE");
+                printf("─────────────────────────────────────────────────────────────────────────────────────────────\n");
+            }
+            displayFineDetails(&f,now);
+            found++;
+        }
+    }
+
+    fclose(fp);
+
+    if(!found)
+    {
+        printf("No Mathcing fines Found.\n");
+    }
+    else{
+        printf("─────────────────────────────────────────────────────────────────────────────────────────────\n");
+        printf("Found %d matching fine(s)\n", found);
+    }
+    pause();
 }
+
+
+
 
 
 
