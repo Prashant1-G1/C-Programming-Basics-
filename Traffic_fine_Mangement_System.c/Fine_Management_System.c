@@ -83,8 +83,8 @@ int main()
 
     do
     {
-        // clearScreen();
-        // printHeader("TRAFFIC FINE MANAGEMENT SYSTEM")
+        clearScreen();
+        printHeader("TRAFFIC FINE MANAGEMENT SYSTEM")
         printf("1. Issue New Fine\n");
         printf("2. View All Fines\n");
         printf("3. Search Fine\n");
@@ -265,7 +265,7 @@ void viewFines()
 
     if(!fp)
     {
-        printf("No Reocrds found.\n");
+        printf("No Records found.\n");
         pause();
         return;
     }
@@ -363,6 +363,352 @@ void searchFine()
     }
     pause();
 }
+
+void payFine()
+{
+    FILE *fp=fopen("fines.dat","rb+");
+    struct Fine f;
+    int id;
+    char paymentMethod[20];
+    time_t now=time(NULL);
+    int found=0;
+
+    clearScreen();
+    printHeader("PAY FINE");
+
+    if(!fp)
+    {
+        printf("No Records Found.\n");
+        pause();
+        return;
+    }
+
+    printf("Enter Fine ID to Pay: ");
+    scanf("%d",&id);
+
+    while(fread(&f,sizeof(f), 1,fp))
+    {
+        if(f.fineID==id)
+        {
+            found=1;
+
+            if(f.isPaid)
+            {
+                printf("\nThis Fine has Already been Paid Off %s",ctime(&f.payTime));
+                fclose(fp);
+                pause();
+                return;
+            }
+
+            if(f.isAppealed && f.appealstatus==1)
+            {
+                printf("\nAppeal Approved - Fine Waived!!\n");
+                fclose(fp);
+                pause();
+                return;
+            }
+
+            int days=daysBetween(f.issueTime,now);
+
+            if(days> DISMISSAL_DAYS)
+            {
+                printf("License Dismissed. Payment not Allowed!\n");
+                printf("Please Contact The Traffic Department.\n");
+                fclose(fp);
+                pause();
+                return;
+            }
+
+            if (days> GRACE_PERIOD_DAYS)
+            {
+                int lateFee=(f.baseAmount*LATE_FEE_PERCENTAGE)/100;
+                f.finalAmount=f.baseAmount+lateFee;
+                printf("Late Payment! Additional 20%% Late Fee Applied.\n");
+            }
+            else{
+                f.finalAmount=f.baseAmount;
+            }
+
+            printf("\n____________________________________\n");
+            printf("Fine ID         : %d\n",f.fineID);
+            printf("Vehicle         : %s\n",f.vehicle);
+            printf("Owner           : %s",f.ownerName);
+            printf("Violation       : %s", getViolationName(f.violationType));
+            printf("Base Amount     : NPR%d\n",f.baseAmount);
+            if(days> GRACE_PERIOD_DAYS)
+            {
+                printf("Late Fee         :NPR %d",f.finalAmount-f.baseAmount);
+            }
+            printf("_____________________________________\n");
+            printf("TOTAL AMOUNT    : %D\n",f.finalAmount);
+            printf("_____________________________________\n");
+
+            if (!confirmAction("Proceed With Payment?"))
+            {
+                fclose(fp);
+                pause();
+                return;
+            }
+
+            printf("\nPayement Method:\n");
+            printf("1. Cash\n");
+            printf("2. Card\n");
+            printf("3. Nagarik App\n");
+            printf("4. Net Banking\n");
+            printf("Enter Choice: ");
+            int method;
+            scanf("%d",&method);
+
+            switch (method)
+            {
+            case 1:
+                strcpy(paymentMethod, "Cash");
+                break;
+            case 2: 
+                strcpy(paymentMethod, "Card");
+                break;
+            case 3:
+                strcpy(paymentMethod, "Nagarik App");
+                break;
+            case 4:
+                strcpy(paymentMethod, "Net Banking");
+                break;
+            default:
+                strcpy(paymentMethod,"Cash");
+            }
+
+            f.isPaid=1;
+            f.payTime=now;
+
+            fseek(fp,-sizeof(f), SEEK_CUR);
+            fwrite(&f, sizeof(f), 1 ,fp);
+            fclose(fp);
+
+            savePaymentHistory(f.fineID, f.finalAmount, paymentMethod);
+
+            printf("\n====================================\n");
+            printf("        PAYMENT SUCCESSFUL\n");
+            printf("====================================\n");
+            printf("Receipt No    : %d\n", f.fineID);
+            printf("Amount Paid   : NPR %d\n", f.finalAmount);
+            printf("Payment Method: %s\n", paymentMethod);
+            printf("Date/Time     : %s", ctime(&f.payTime));
+            printf("------------------------------------\n");
+            printf("Thank you for your payment!\n");
+
+            pause();
+            return;
+        }
+    }
+
+    fclose(fp);
+
+    if(!found)
+    {
+        printf("\n Fine ID not Found.\n");
+    }
+
+    pause();
+}
+
+void appealFine()
+{
+    FILE *fp=fopen("fines.dat","rb+");
+    struct Fine f;
+    int id;
+    time_t now=time(NULL);
+    int found=0;
+
+    clearScreen();
+    printHeader("APPEAL FINE");
+
+    if(!fp)
+    {
+        printf("No Records Found.\n");
+        pause();
+        return;
+    }
+
+    printf("Enter Fine ID to Appeal: ");
+    scanf("%d",&id);
+
+    while(fread(&f,sizeof(f),1,fp))
+    {
+        if(f.fineID==id)
+        {
+            found=1;
+
+            if(f.isPaid)
+            {
+                printf("Fine is Alraedy Paid. Can't Appeal Paid Fined.\n");
+                fclose(fp);
+                pause();
+                return;
+            }
+
+            if(f.isAppealed)
+            {
+                printf("\n Appeal Already Submitted for this Fine.\n");
+                if(f.appealstatus==0)
+                {
+                    printf("Status: Pending\n");
+                }
+                else if(f.appealstatus==1)
+                {
+                    printf("Status: Approved\n");
+                }
+                else printf("Status: Rejected\n");
+                fclose(fp);
+                pause();
+                return;
+            }
+
+            printf("\n-------------------------------------\n");
+            printf("Fine ID    : %d\n", f.fineID);
+            printf("Vehicle    : %s\n", f.vehicle);
+            printf("Violation  : %s\n", getViolationName(f.violationType));
+            printf("Amount     : NPR %d\n", f.baseAmount);
+            printf("-------------------------------------\n");
+
+            printf("\nEnter Reason for Appeal (Max 200 Charaters):\n");
+            f.appealReason[strcspn(f.appealReason,"\n")] = 0;
+
+            if(strlen(f.appealReason<10))
+            {
+                printf("\nAppeal Reason too Short. Minimum 10 Characters Required\n");
+            }
+
+            f.isAppealed=1;
+            f.appealstatus=0;
+
+            fseek(fp, -sizeof(f), SEEK_CUR);
+            fwrite(&f,sizeof(f),1, fp);
+            fclose(fp);
+
+            printf("\n   Appeal Submitted Successfully.  \n");
+            printf("Your Appeal is Pending Review by the Admin.\n");
+
+            pause();
+            return;
+        }
+    }
+
+    fclose(fp);
+
+    if(!found)
+    {
+        printf("\n Fine ID Not Found.\n");
+    }
+
+    pause();
+}
+
+void processAppeals()
+{
+    FILE *fp=fopen("fines.dat","rb+");
+    struct Fine f;
+
+    int count=0;
+    int choice, id;
+
+    clearScreen();
+    printHeader("PROCESS APPEALS (ADMIN)");
+
+    if(!fp)
+    {
+        printf("No Records Found.\n");
+        pause();
+        return;
+    }
+
+    printf("Pending Appeals:\n");
+    printf("-------------------------------------------------------------------------\n");
+
+    while(fread(&f, sizeof(f), 1, fp))
+    {
+        if(f.isAppealed && f.appealstatus ==0)
+        {
+            printf("\nFine ID     : %d\n",f.fineID);
+            printf("Vehicle     : %s\n",f.vehicle);
+            printf("Owner       : %s",f.ownerName);
+            printf("Violation   : %s\n", getViolationName(f.violationType));
+            printf("Amount      : NPR%d\n",f.finalAmount);
+            printf("Reason      : %s\n",f.appealReason);
+            printf("-------------------------------------------------------------------------\n");
+            count++;
+        }
+    }
+
+    if(count==0)
+    {
+        printf("NO Pending Appeals.\n");
+        fclose(fp);
+        pause();
+        return;
+    }
+
+    printf("\nTotal Pending Appeals: %d",count);
+    printf("\nEnter Fine ID to Process (0 to Cancel): ");
+    scanf("%d",&id);
+
+    if(id==0)
+    {
+        fclose(fp);
+        return;
+    }
+
+    rewind(fp);
+
+    while(fread(&f, sizeof(f), 1, fp)) 
+    {
+        if (f.fineID == id && f.isAppealed && f.appealstatus == 0) {
+            printf("\nAppeal Decision:\n");
+            printf("1. Approve (Waive fine)\n");
+            printf("2. Reject\n");
+            printf("Enter choice: ");
+            scanf("%d", &choice);
+
+            if (choice == 1) {
+                f.appealstatus = 1; 
+                printf("\n Appeal approved. Fine waived.\n");
+            } else if (choice == 2) {
+                f.appealstatus = 2; 
+                printf("\n Appeal rejected.\n");
+            } else {
+                printf("\n Invalid choice.\n");
+                fclose(fp);
+                pause();
+                return;
+            }
+
+            fseek(fp, -sizeof(f), SEEK_CUR);
+            fwrite(&f, sizeof(f), 1, fp);
+            fclose(fp);
+
+            pause();
+            return;
+        }
+    }
+
+    fclose(fp);
+    printf("\n Fine ID not found or not pending.\n");
+    pause();
+}
+
+void dashboard()
+{
+    struct Statistics stats={0};
+
+    clearScreen();
+    printHeader("ADMIN DASHBOARD");
+
+    calculateStatistics(&stats);
+    displayStatistics(&stats);
+
+    pause();
+}
+
+
 
 
 
