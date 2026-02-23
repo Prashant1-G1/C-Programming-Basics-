@@ -43,6 +43,7 @@ struct Statistics
     int paidFines;
     int unpaidFines;
     int dismissedFines;
+    int totalRevenue;
     int appealedFines;
     int PendingRevenue;
 };
@@ -84,7 +85,7 @@ int main()
     do
     {
         clearScreen();
-        printHeader("TRAFFIC FINE MANAGEMENT SYSTEM")
+        printHeader("TRAFFIC FINE MANAGEMENT SYSTEM");
         printf("1. Issue New Fine\n");
         printf("2. View All Fines\n");
         printf("3. Search Fine\n");
@@ -480,7 +481,7 @@ void payFine()
             f.isPaid=1;
             f.payTime=now;
 
-            fseek(fp,-sizeof(f), SEEK_CUR);
+            fseek(fp,-(long)sizeof(f), SEEK_CUR);
             fwrite(&f, sizeof(f), 1 ,fp);
             fclose(fp);
 
@@ -573,7 +574,7 @@ void appealFine()
             printf("\nEnter Reason for Appeal (Max 200 Charaters):\n");
             f.appealReason[strcspn(f.appealReason,"\n")] = 0;
 
-            if(strlen(f.appealReason<10))
+            if(strlen(f.appealReason)<10)
             {
                 printf("\nAppeal Reason too Short. Minimum 10 Characters Required\n");
             }
@@ -581,7 +582,7 @@ void appealFine()
             f.isAppealed=1;
             f.appealstatus=0;
 
-            fseek(fp, -sizeof(f), SEEK_CUR);
+            fseek(fp, -(long)sizeof(f), SEEK_CUR);
             fwrite(&f,sizeof(f),1, fp);
             fclose(fp);
 
@@ -681,7 +682,7 @@ void processAppeals()
                 return;
             }
 
-            fseek(fp, -sizeof(f), SEEK_CUR);
+            fseek(fp, -(long)sizeof(f), SEEK_CUR);
             fwrite(&f, sizeof(f), 1, fp);
             fclose(fp);
 
@@ -707,6 +708,375 @@ void dashboard()
 
     pause();
 }
+
+void generateReports()
+{
+    FILE *fp=fopen("fines.dat","rb");
+    FILE *report;
+    struct Fine f;
+    time_t now=time(NULL);
+    char filename[50];
+    int reportType;
+
+    clearScreen();
+    printHeader("GENERATE REPORTS");
+    
+    if(!fp)
+    {
+        printf("No Records Found.\n");
+        pause();
+        return;
+    }
+
+    printf("Select Report Type:\n");
+    printf("1. All Fines Report\n");
+    printf("2. Unpaid Fines Report\n");
+    printf("3. Revenue Report\n");
+    printf("4. Daily Report\n");
+    printf("Enter Choice: ");
+    scanf("%d",&reportType);
+
+    sprintf(filename,"report_%ld.txt",(long)now);
+    report=fopen(filename,"w");
+
+    if(!report)
+    {
+        printf("Error Creating Report File!\n");
+        fclose(fp);
+        pause();
+        return;
+    }
+
+    fprintf(report,"-------------------------------------------------------\n");
+    fprintf(report,"          TRAFFIC FINE MANAGEMENT SYSTEM- REPORT\n");
+    fprintf(report,"-------------------------------------------------------\n");
+    fprintf(report,"Generated on: %s",ctime(&now));
+    fprintf(report,"-------------------------------------------------------\n");
+
+    int count=0;
+    int totalAmount=0;
+
+    while(fread(&f,sizeof(f),1,fp))
+    {
+        int include=0;
+        int days=daysBetween(f.issueTime,now);
+
+        if(reportType==1)include=1;
+        else if(reportType==2 && !f.isPaid && days <=DISMISSAL_DAYS) include=1;
+        else if(reportType==3 && f.isPaid ) include=1;
+        else if(reportType ==4 && daysBetween(f.issueTime, now)==0) include=1;
+
+        if(include)
+        {
+            fprintf(report,"Fine ID    : %d\n",f.fineID);
+            fprintf(report,"Vehicle    : %s\n",f.vehicle);
+            fprintf(report,"Owner      : %s",f.ownerName);
+            fprintf(report,"Violation  : %s\n",getViolationName(f.violationType));
+            fprintf(report,"Amount     : NPR%d\n",f.finalAmount);
+            fprintf(report,"Status     : %s\n",f.isPaid?"PAID":"UNPAID");
+            fprintf(report,"Issue Date : %s",ctime(&f.issueTime));
+            if(f.isPaid)
+            {
+                fprintf(report,"Pay Date            : %s",ctime(&f.payTime));        
+            }
+            fprintf(report,"-------------------------------------------------\n");
+            count++;
+            if(f.isPaid)
+            {
+                totalAmount+=f.finalAmount;
+            }
+        }
+    }
+        fprintf(report,"\nTotal Records: %d",count);
+        if(reportType==3)
+        {
+            fprintf(report,"Total Revenue: NPR%d\n",totalAmount);
+        }
+
+        fclose(fp);
+        fclose(report);
+
+        printf("\n Report Generated Successfully.\n");
+        printf("File Name: %s\n",filename);
+        printf("Total Records: %d\n",count);
+
+        pause();
+}
+
+
+
+int fineIDExists(int id)
+{
+    FILE *fp=fopen("fines.dat","rb");
+    struct Fine f;
+
+    if(!fp)
+    {
+        return 0;
+    }
+
+    while(fread(&f,sizeof(f),1,fp))
+    {
+        if(f.fineID==id)
+        {
+            fclose(fp);
+            return 1;
+        }
+    }
+
+    fclose(fp);
+    return 0;
+}
+
+int getNextFineID()
+{
+    FILE *fp =fopen("fines.dat","rb");
+    struct Fine f;
+
+    int maxID=1000;
+
+    if(!fp) return maxID;
+
+    while(fread(&f,sizeof(f),1,fp))
+    {
+        if(f.fineID>=maxID)
+        {
+            maxID=f.fineID+1;
+        }
+    }
+
+    fclose(fp);
+    return maxID;
+}
+
+int daysBetween(time_t a, time_t b)
+{
+    return(int)(difftime(b,a)/(60*60*25));
+}
+
+int getBaseFine(int type)
+{
+    switch (type)
+    {
+    case 1:
+        return 1000;
+    case 2:
+        return 1500;
+    case 3:
+        return 500;
+    case 4:
+        return 300;
+    case 5:
+        return 10000;
+    case 6:
+        return 1000;
+    case 7:
+        return 500;
+    case 8:
+        return 5000;
+    default:
+        return 300;
+    }
+}
+
+const char* getViolationName(int type)
+{
+    switch (type)
+    {
+    case 1:
+        return "Signal Jump";
+    case 2:
+        return "Speeding";
+    case 3:
+        return "No Helmet";
+    case 4:
+        return "Wrong Parking";
+    case 5:
+        return "Drunk Driving";
+    case 6:
+        return "No Seatbelt";
+    case 7:
+        return "Triple Riding";
+    case 8:
+        return "No License";
+    default:
+        return "Unkown";
+    }
+}
+
+int validateVehicle(char *vehicle)
+{
+    int len=strlen(vehicle);
+    if(len<4||len>14) return 0;
+
+    return  1;
+}
+
+void toUpperCase(char *str)
+{
+    for(int i=0; str[i]; i++)
+    {
+        str[i]=toupper(str[i]);
+    }
+}
+
+void clearScreen()
+{
+    #ifdef _WIN32
+        system("cls");
+    #else
+        system("clear");
+    #endif
+}
+
+void pause()
+{
+    system("cls");
+}
+
+int confirmAction(const char *message)
+{
+    char response;
+    printf("\n%s(y/n)",message);
+    scanf("%c",&response);
+    return (response == 'y' || response == 'Y');
+}
+
+void printHeader(const char *title)
+{
+    printf("\n==================================================\n");
+    printf("                %s\n",title);
+    printf("===================================================\n");
+}
+
+void displayFineDetails(struct Fine *f, time_t now)
+{
+    int days=daysBetween((*f).issueTime,now);
+    char status[15]="UNPAID";
+    char note[25]="-";
+    int displayAmount=(*f).finalAmount;
+
+    if(!(*f).isPaid)
+    {
+        if((*f).isAppealed)
+        {
+            if((*f).appealstatus==0) strcpy(status,"APPEALED");
+            else if ((*f).appealstatus==1) strcpy(status,"WAIVED");
+            else strcpy(status,"REJECTED");
+        }
+        else if(days>DISMISSAL_DAYS)
+        {
+            strcpy(status,"DIMISSED");
+            strcpy(status,"LICENSE HOLD");
+        }
+        else if(days>GRACE_PERIOD_DAYS)
+        {
+            displayAmount=(*f).baseAmount+((*f).baseAmount*LATE_FEE_PERCENTAGE/100);
+            strcpy(note, "+20%% LATE");
+        }
+    }
+    else{
+        strcpy(status,"PAID");
+        strcpy(note,"GOOD");
+    }
+
+    printf("%-5d %-12s %-20.20s %-15s NPR%-7d %-12s %-5d %-15s\n",
+           f->fineID,
+           f->vehicle,
+           f->ownerName,
+           getViolationName(f->violationType),
+           displayAmount,
+           status,
+           days,
+           note);
+}
+
+void savePaymentHistory(int fineID, int amount, const char *method)
+{
+    FILE *fp=fopen("payments.dat","ab");
+    struct PaymentHistory payment;
+
+    if (!fp) return;
+
+    payment.fineID=fineID;
+    payment.amoutn=amount;
+    payment.paymentDate=time(NULL);
+    strncpy(payment.paymentMethod, method, sizeof(payment.paymentMethod)-1);
+
+    fwrite(&payment, sizeof(payment),1,fp);
+    fclose(fp);
+}
+
+void calculateStatistics(struct Statistics *stats)
+{
+    FILE *fp=fopen("fines.dat","rb");
+    struct Fine f;
+    time_t now=time(NULL);
+
+    if(!fp) return;
+
+    while(fread(&f,sizeof(f),1,fp))
+    {
+        (*stats).totalFines++;
+
+        if (f.isPaid)
+        {
+            stats->paidFines++;
+            stats->totalRevenue += f.finalAmount;
+        }
+        else
+        {
+            int days=daysBetween(f.issueTime,now);
+            if(days>DISMISSAL_DAYS)
+            {
+                stats->dismissedFines++;
+            }
+            else
+            {
+                stats->unpaidFines;
+                int amount=f.baseAmount;
+                if(days>GRACE_PERIOD_DAYS)
+                {
+                    amount += (f.baseAmount * LATE_FEE_PERCENTAGE/100);
+                }
+                stats->PendingRevenue+=amount;
+            }
+        }
+        if(f.isAppealed)
+        {
+            stats->appealedFines++;
+        }
+    }
+    fclose(fp);
+
+
+}
+
+void displayStatistics(struct Statistics *stats)
+{
+printf("\n========================================\n");
+printf("           SYSTEM STATISTICS            \n");
+printf("========================================\n");
+printf(" Total Fines Issued    : %-14d\n", stats->totalFines);
+printf(" Paid Fines            : %-14d\n", stats->paidFines);
+printf(" Unpaid Fines          : %-14d\n", stats->unpaidFines);
+printf(" License Dismissed     : %-14d\n", stats->dismissedFines);
+printf(" Appealed Fines        : %-14d\n", stats->appealedFines);
+printf("----------------------------------------\n");
+printf(" Total Revenue         : %-14d\n", stats->totalRevenue);
+printf(" Pending Revenue       : %-14d\n", stats->PendingRevenue);
+printf("========================================\n");
+
+if (stats->totalFines > 0)
+{
+    float collectionRate =
+        (float)stats->paidFines / stats->totalFines * 100;
+
+    printf("\nCollection Rate: %.2f%%\n", collectionRate);
+}
+}
+
+
 
 
 
