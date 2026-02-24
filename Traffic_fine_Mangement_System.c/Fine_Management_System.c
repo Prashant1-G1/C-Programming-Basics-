@@ -44,6 +44,7 @@ struct Statistics
     int unpaidFines;
     int dismissedFines;
     int totalRevenue;
+    int appealedAppliedFines;
     int appealedFines;
     int PendingRevenue;
 };
@@ -183,6 +184,11 @@ void issueFine()
     printf("Owner Name: ");
     while(getchar()!='\n');
     fgets(f.ownerName,MAX_NAME_LEN,stdin);
+    size_t len = strlen(f.ownerName);
+    if (len > 0 && f.ownerName[len-1] == '\n') {
+        f.ownerName[len-1] = '\0';
+    }
+    toUpperCase(f.ownerName);
     
     printf("Violation Location: ");
     fgets(f.location,MAX_LOCATION_LEN,stdin);
@@ -244,7 +250,7 @@ void issueFine()
     printf("====================================\n");
     printf("Fine ID    : %d\n", f.fineID);
     printf("Vehicle    : %s\n", f.vehicle);
-    printf("Owner      : %s", f.ownerName);
+    printf("Owner      : %s\n", f.ownerName);
     printf("Location   : %s", f.location);
     printf("Violation  : %s\n", getViolationName(f.violationType));
     printf("Amount     : Rs. %d\n", f.baseAmount);
@@ -274,10 +280,10 @@ void viewFines()
         return;
     }
     
-    printf("─────────────────────────────────────────────────────────────────────────────────────────────\n");
+    printf("---------------------------------------------------------------------------------------------\n");
     printf("%-5s %-12s %-20s %-15s %-8s %-12s %-5s %-15s\n",
            "ID", "VEHICLE", "OWNER", "VIOLATION", "AMOUNT", "STATUS", "DAYS", "NOTE");
-    printf("─────────────────────────────────────────────────────────────────────────────────────────────\n");
+    printf("---------------------------------------------------------------------------------------------\n");
    
     while(fread(&f, sizeof(f), 1, fp))
     {
@@ -293,7 +299,7 @@ void viewFines()
     }
     else
     {
-        printf("─────────────────────────────────────────────────────────────────────────────────────────────\n");
+        printf("---------------------------------------------------------------------------------------------\n");
         printf("Total Fines: %d\n",count);
     }
     pause();
@@ -327,9 +333,14 @@ void searchFine()
     printf("Enter search term: ");
     while(getchar()!='\n');
     fgets(searchTerm,sizeof(searchTerm),stdin);
+    size_t len = strlen(searchTerm);
+    if (len > 0 && searchTerm[len-1] == '\n') 
+    {
+        searchTerm[len-1] = '\0';
+    }
     toUpperCase(searchTerm);
 
-    printf("\n─────────────────────────────────────────────────────────────────────────────────────────────\n");
+    printf("\n---------------------------------------------------------------------------------------------------\n");
 
     while(fread(&f,sizeof(f),1,fp))
     {
@@ -340,15 +351,16 @@ void searchFine()
         toUpperCase(tempName);
 
         int match=0;
-        if(searchType==1 && f.fineID==atoi(searchTerm)) match==1;
-        else if(searchType==2 && strstr(tempVehicle, searchTerm)) match==1;
-        else if(searchType==3 && strstr(tempName, searchTerm)) match==1;
+        if(searchType==1 && f.fineID==atoi(searchTerm)) match=1;
+        else if(searchType==2 && strstr(tempVehicle, searchTerm)) match=1;
+        else if(searchType==3 && strstr(tempName, searchTerm)) match=1;
 
-        if(match){
+        if(match)
+        {
             if(!found){
                 printf("%-5s %-12s %-20s %-15s %-8s %-12s %-5s %-15s\n",
                        "ID", "VEHICLE", "OWNER", "VIOLATION", "AMOUNT", "STATUS", "DAYS", "NOTE");
-                printf("─────────────────────────────────────────────────────────────────────────────────────────────\n");
+                printf("--------------------------------------------------------------------------------------------------\n");
             }
             displayFineDetails(&f,now);
             found++;
@@ -361,8 +373,9 @@ void searchFine()
     {
         printf("No Mathcing fines Found.\n");
     }
-    else{
-        printf("─────────────────────────────────────────────────────────────────────────────────────────────\n");
+    else
+    {
+        printf("--------------------------------------------------------------------------------------------------\n");
         printf("Found %d matching fine(s)\n", found);
     }
     pause();
@@ -436,18 +449,20 @@ void payFine()
             printf("\n____________________________________\n");
             printf("Fine ID         : %d\n",f.fineID);
             printf("Vehicle         : %s\n",f.vehicle);
-            printf("Owner           : %s",f.ownerName);
-            printf("Violation       : %s", getViolationName(f.violationType));
+            printf("Owner           : %s\n",f.ownerName);
+            printf("Violation       : %s\n", getViolationName(f.violationType));
             printf("Base Amount     : NPR%d\n",f.baseAmount);
             if(days> GRACE_PERIOD_DAYS)
             {
                 printf("Late Fee         :NPR %d",f.finalAmount-f.baseAmount);
             }
             printf("_____________________________________\n");
-            printf("TOTAL AMOUNT    : %D\n",f.finalAmount);
+            printf("TOTAL AMOUNT    : %d\n",f.finalAmount);
             printf("_____________________________________\n");
 
-            if (!confirmAction("Proceed With Payment?"))
+            
+
+            if (confirmAction("Proceed with Payment?")!=1)
             {
                 fclose(fp);
                 pause();
@@ -575,11 +590,16 @@ void appealFine()
             printf("-------------------------------------\n");
 
             printf("\nEnter Reason for Appeal (Max 200 Charaters):\n");
+            while(getchar()!='\n');
+            fgets(f.appealReason,sizeof(f.appealReason),stdin);
             f.appealReason[strcspn(f.appealReason,"\n")] = 0;
 
             if(strlen(f.appealReason)<10)
             {
                 printf("\nAppeal Reason too Short. Minimum 10 Characters Required\n");
+                fclose(fp);
+                pause();
+                return;
             }
 
             f.isAppealed=1;
@@ -839,7 +859,7 @@ void vehicleHistory()
         strcpy(tempVehicle,f.vehicle);
         toUpperCase(tempVehicle);
 
-        if(strcmp(tempVehicle,vehicle)==0);
+        if(strcmp(tempVehicle,vehicle) == 0)
         {
             if(!found)
             {
@@ -850,20 +870,23 @@ void vehicleHistory()
 
             printf("Fine ID        : %d\n",f.fineID);
             printf("Violation      : %s\n",getViolationName(f.violationType));
-            printf("Amount         : %s\n",f.finalAmount);
+            printf("Amount         : NPR%d\n",f.finalAmount);
             printf("Status         : %s\n",f.isPaid?"PAID":"UNPAID");
-            printf("Date           : %s\n",f.issueTime);
+            printf("Date           : %s",ctime(&f.issueTime));
             printf("Location       : %s",f.location);
             printf("----------------------------------------------------------\n");
 
             found=1;
             totalFines++;
+
             if(f.isPaid)
             {
                 paidFines++;
                 totalAmount+=f.finalAmount;
             }
+
         }
+        
     }
 
     fclose(fp);
@@ -913,10 +936,10 @@ void modifyFine()
             printf("\nCurrent Details.\n");
             printf("-------------------------------------\n");
             printf("Vehicle    : %s\n",f.vehicle);
-            printf("Owner      : %s",f.ownerName);
-            printf("Violation  : %s",getViolationName(f.violationType));
-            printf("Amount     : NPR%d",f.finalAmount);
-            printf("Status     : %s",f.isPaid?"PAID":"UNPAID");
+            printf("Owner      : %s\n",f.ownerName);
+            printf("Violation  : %s\n",getViolationName(f.violationType));
+            printf("Amount     : NPR%d\n",f.finalAmount);
+            printf("Status     : %s\n",f.isPaid?"PAID":"UNPAID");
             printf("-------------------------------------\n");
 
             if(f.isPaid)
@@ -1016,9 +1039,9 @@ void deleteFine()
             printf("--------------------------------------\n");
             printf("Fine ID     : %d\n",f.fineID);
             printf("Vehicle     : %s\n",f.vehicle);
-            printf("Owner       : %s",f.ownerName);
-            printf("Violation   : %s",getViolationName(f.violationType));
-            printf("Amount      : NPR%d",f.finalAmount);
+            printf("Owner       : %s\n",f.ownerName);
+            printf("Violation   : %s\n",getViolationName(f.violationType));
+            printf("Amount      : NPR%d\n",f.finalAmount);
             printf("--------------------------------------\n");
 
             if(!confirmAction("Delete this Fine Permanently?"))
@@ -1243,8 +1266,9 @@ void pause()
 int confirmAction(const char *message)
 {
     char response;
-    printf("\n%s(y/n)",message);
-    scanf("%c",&response);
+    printf("\n%s\n",message);
+    printf("Y/N: ");
+    scanf(" %c",&response);
     return (response == 'y' || response == 'Y');
 }
 
@@ -1350,6 +1374,10 @@ void calculateStatistics(struct Statistics *stats)
         }
         if(f.isAppealed)
         {
+            stats->appealedAppliedFines++;
+        }
+        if(f.isAppealed && f.appealstatus == 1)
+        {
             stats->appealedFines++;
         }
     }
@@ -1367,6 +1395,7 @@ printf(" Total Fines Issued    : %-14d\n", stats->totalFines);
 printf(" Paid Fines            : %-14d\n", stats->paidFines);
 printf(" Unpaid Fines          : %-14d\n", stats->unpaidFines);
 printf(" License Dismissed     : %-14d\n", stats->dismissedFines);
+printf(" Applied Applies       : %-14d\n", stats->appealedAppliedFines);
 printf(" Appealed Fines        : %-14d\n", stats->appealedFines);
 printf("----------------------------------------\n");
 printf(" Total Revenue         : %-14d\n", stats->totalRevenue);
