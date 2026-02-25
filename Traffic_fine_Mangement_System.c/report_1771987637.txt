@@ -1,0 +1,15 @@
+-------------------------------------------------------
+          TRAFFIC FINE MANAGEMENT SYSTEM- REPORT
+-------------------------------------------------------
+Generated on: Wed Feb 25 08:32:17 2026
+-------------------------------------------------------
+Fine ID    : 1000
+Vehicle    : BAG100
+Owner      : PRASHANT BHATTARAIViolation  : Speeding
+Amount     : NPR1500
+Status     : PAID
+Issue Date : Wed Feb 25 08:25:19 2026
+Pay Date            : Wed Feb 25 08:26:19 2026
+-------------------------------------------------
+
+Total Records: 1
